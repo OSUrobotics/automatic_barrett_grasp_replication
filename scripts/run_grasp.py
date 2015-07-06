@@ -155,7 +155,7 @@ if __name__ == "__main__":
 	grasp_vid_trial_bool = True 
 	#*********Kinect Video service call***************
 	vid_num = str(grasp_trial_vid_num - int(grasp_trial_num)) 
-	t1 = Thread(target = kinect_caller, args = (vid_num, grasp_vid_trial_bool))
+	t1 = Thread(target = kinect_caller, args = (vid_num))
 	t1.start()
 	
 	
@@ -227,7 +227,7 @@ if __name__ == "__main__":
 	time.sleep(15)
 
 	#End the video for trial
-	grasp_vid_trial_bool = False
+	stop_vid_record()
 	print t1.is_alive()
 	#bagvid.close()
 
