@@ -18,7 +18,7 @@ def kinect_image_cb(msg):
 
 if __name__ == "__main__":
         rospy.init_node("bagger")
-        bag = rosbag.Bag('pointcloud.bag', 'w')
+        bag = rosbag.Bag('pointcloud.bag', 'w', 'BZ2')
         pcl_sub = rospy.Subscriber("camera/depth_registered/points", PointCloud2, kinect_image_cb)
 
 
