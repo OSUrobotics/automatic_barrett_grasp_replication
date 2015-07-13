@@ -208,7 +208,8 @@ if __name__ == "__main__":
 		#Kinect Video service call
 		current_trial_num = str(orig_trial_num - grasp_trial_num)
 		start_vid_record(grasp_num, current_trial_num)
-		
+		open_csv_writer(grasp_num)
+
 		# Move the arm
 		grasp_pos = arm_to_grasp_position(grasps[grasp_num])
 
@@ -218,10 +219,10 @@ if __name__ == "__main__":
 		else: #This is for if its not the first trial: Wait for two seconds then Close the hand
 			automatic_hand_close(grasps[grasp_num], command_pub, user_adj)
 
-		#Kinect Picture Serice call
-		Image_record(grasp_num,'_img1')
-		point_cloud_record(grasp_num,'_pcl1' )
-		time.sleep(1.5)
+		#Kinect Picture Serice call    
+		ic = image_converter('_img0')
+		point_cloud_record('_pcl0' )
+		
 	
 		#Run a shake test
 		if grasp_trial_bool == True:
@@ -229,29 +230,31 @@ if __name__ == "__main__":
 		if shake_test_bool == "y" or shake_test_bool == "Y":
 			set_speed(500) 
 			shake_home_pos()
-			Image_record(grasp_num,'_img2')
-			point_cloud_record(grasp_num,'_pcl2')
-			time.sleep(2)
+			time.sleep(1.5) #time to get to home_pos()
+			ic1 = image_converter('_img1')
+			point_cloud_record('_pcl1')
+			#time.sleep(2)
 			for i in range(3):
 				shake_left()
 				shake_right()        
 			set_speed(100)
 			shake_home_pos()
-			Image_record(grasp_num,'_img3')
-			point_cloud_record(grasp_num,'_pcl3')
-			time.sleep(2)
+			time.sleep(1.3)
+			ic2 = image_converter('_img2')
+			point_cloud_record('_pcl2')
+			#time.sleep(2)
 	
 		#Move Arm to set object back down
 		send_adept_joints(grasp_pos)
 		time.sleep(11)
-		Image_record(grasp_num, '_img4')
-		time.sleep(2)
+		ic3 = image_converter('_img3')
+		#time.sleep(2)
 	
 		#sends arm to home postion. 
 		reset_arm_hand()
 		grasp_trial_num -= 1  
 		grasp_trial_bool = False
-
+		#csv_appender(current_trial_num, , , , , )	
 
 		#End the video for trial
 		stop_vid_record()

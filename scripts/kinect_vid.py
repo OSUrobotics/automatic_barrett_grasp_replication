@@ -4,13 +4,17 @@ import os
 import time
 from threading import Thread, Lock
 import rosbag
+from  cv_bridge import CvBridge, CvBridgeError
+import cv2
+from sensor_msgs.msg import CompressedImage
 from sensor_msgs.msg import Image
 from sensor_msgs.msg import PointCloud2
 
 
 bagvid = None
-bagimg = None
+name = None
 bagpcl = None
+cnt = 3
 spinner = True
 grasp_trial = None
 grasp_num = None
@@ -19,42 +23,53 @@ vid_start_lock = None
 
 bag_file_location = "/home/roboticslab/AlphaTrialVideos/"
 
-def change_trial(trial):
-	global grasp_trial
-	grasp_trial = trial
 
 def kinect_pcl_cb(msg):
-	global bagpcl
+	global bagpcl, cnt
 	bagpcl.write('camera/depth_registered/points', msg)
+	cnt -= 1
  
-def point_cloud_record(grasp_num, pcl_num):
-	global bagpcl, grasp_trial, bag_file_location
-        bagpcl = rosbag.Bag(bag_file_location + 'Grasp_' + str(grasp_num) +'_trial_'+ str(grasp_trial) + str(pcl_num) +'.bag', 'w')
-        pcl_sub = rospy.Subscriber("camera/depth_registered/points", PointCloud2, kinect_pcl_cb)
-	
-	myint = 3
-	while myint != 0:
-		myint -=1
+def point_cloud_record(pcl_num):
+	global bagpcl, grasp_trial, bag_file_location, cnt
 
-        pcl_sub.unregister()
+	if not os.path.exists(bag_file_location +'Grasp' + str(grasp_num)):
+		os.makedirs(bag_file_location +'Grasp' + str(grasp_num))
+	
+	bagname = bag_file_location +'Grasp' + str(grasp_num) +'/'+ 'Grasp_' + str(grasp_num) +'_trial_'+ str(grasp_trial) + str(pcl_num) +'.bag'
+        bagpcl = rosbag.Bag(bagname, 'w')
+        pcl_sub = rospy.Subscriber("camera/depth_registered/points", PointCloud2, kinect_pcl_cb, queue_size=1)
+	
+	while cnt > 0:
+		print "wacky" + str(cnt)
+		continue
+	
+	cnt = 3
+	print "wacky done"
+	pcl_sub.unregister()
+	del pcl_sub 
         bagpcl.close()
 
-def kinect_image(msg):
-        global bagimg
-        bagimg.write('/camera/rgb/image_color', msg)
+class image_converter:
 
-def Image_record(grasp_num,imag_num):
-	global bagImg, bag_file_location
-	bagImg = rosbag.Bag(bag_file_location + 'Grasp_' + str(grasp_num) +'_trial_'+ str(grasp_trial) + str(imag_num) +'.bag', 'w')
-	image = rospy.Subscriber("/camera/rgb/image_color", Image, kinect_image)
+	global img_num, bag_file_location, grasp_num, grasp_trial
 	
-	myint = 30 
-	while myint != 0:
-		myint -= 1
+	def __init__(self, img_num):
+		self.img_num = img_num
+		self.img_pub = rospy.Publisher("/camera/rgb/image_color", Image)
+		self.bridge = CvBridge()
+		self.image_sub = rospy.Subscriber("/camera/rgb/image_color", Image, self.callback, queue_size=1)
+		
+	def callback(self, data):
+		try:
+			cv_image = self.bridge.imgmsg_to_cv2(data, "bgr8")
+		except CvBridgeError, e:
+			print e
 
-	image.unregister()
-	bagImg.close()
-
+		name = bag_file_location +'Grasp' + str(grasp_num) +'/'+ 'Grasp_' + str(grasp_num) +'_trial_'+ str(grasp_trial) + str(self.img_num) +'.png'
+		cv2.imwrite(name, cv_image) 
+		
+		self.image_sub.unregister()
+	
 def init_vid_thread():
 	global vid_start_lock
 	vid_start_lock = Lock()
@@ -82,7 +97,7 @@ def start_vid_record(grasp_num_l, grasp_trial_l):
 def kinect_image_cb(msg):
         global bagvid
 	try:
-        	bagvid.write('/camera/rgb/image_color', msg)
+        	bagvid.write('/camera/rgb/image_color/compressed', msg)
 	except:
 		rospy.logerr("Trouble writing to bag file. Image stamp: " + str(msg.header.stamp))
 
@@ -94,11 +109,14 @@ def kinect_caller():
 		vid_start_lock.acquire()
 		if rospy.is_shutdown():
 			return
+		
+		if not os.path.exists(bag_file_location +'Grasp' + str(grasp_num)):
+			os.makedirs(bag_file_location +'Grasp' + str(grasp_num))
 
-		bag_name = bag_file_location + 'Grasp_' + str(grasp_num) +'_trial_'+ str(grasp_trial) + '_vid' +'.bag'
+		bag_name = bag_file_location + 'Grasp' + str(grasp_num) +'/' + 'Grasp_' + str(grasp_num) +'_trial_'+ str(grasp_trial) + '_vid' +'.bag'
 		rospy.loginfo("Recording to bag: " + bag_name)
 		bagvid = rosbag.Bag(bag_name, 'w')
-		image_sub = rospy.Subscriber("/camera/rgb/image_color", Image, kinect_image_cb, queue_size=1)
+		image_sub = rospy.Subscriber("/camera/rgb/image_color/compressed", CompressedImage, kinect_image_cb, queue_size=1)
 
        		period = rospy.Duration(0.25)
         	while not rospy.is_shutdown() and spinner == True:
@@ -112,5 +130,5 @@ def kinect_caller():
 		del image_sub
        		bagvid.close()
 		print "Kinect Img bag close " + bag_name + ", time: ", time.time()
-		time.sleep(1)
+		#time.sleep(1)
 	
