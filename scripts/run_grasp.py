@@ -2,6 +2,7 @@
 import rospy
 import rospkg
 import rosbag
+import os
 from sensor_msgs.msg import JointState
 from csv_file_writer import *
 from kinect_vid import *
@@ -135,7 +136,8 @@ def arm_to_grasp_position(grasp):
 def get_user_hand_adj(grasp, command_pub):
         raw_input("Press enter to grasp.")
         cur_hand_jts = [0, grasp["Finger 1(rads)"], grasp["Finger 2(rads)"], grasp["Finger 3(rads)"], 0, 0, grasp["Spread (rads)"], 0 ]
-        grasp_inc = "0" 
+        grasp_inc = "0"
+	grasp_inc_Copy = 0
         while grasp_inc != "q" and grasp_inc != "Q":
          	grasp_inc = float(grasp_inc)
           	cur_hand_jts[1] += grasp_inc
@@ -146,12 +148,10 @@ def get_user_hand_adj(grasp, command_pub):
 	 	while True:
 	 		try:
          	 		grasp_inc = raw_input("Enter how much to increase closure by (change in radians, or q to quit):")
-		 		grasp_inc_Copy = 0
-				if grasp_inc == "q" or  grasp_inc == "Q":
+		 		if grasp_inc == "q" or  grasp_inc == "Q":
 		 			break
 		 		else:
-					float(grasp_inc)
-					grasp_inc_Copy = float(grasp_inc)
+					grasp_inc_Copy += float(grasp_inc)
 					break
 			except ValueError:
 		 		print "Invalid Entry, try again"
@@ -166,13 +166,26 @@ def automatic_hand_close(grasp, command_pub, user_adj):
         send_hand_position(command_pub, cur_hand_jts)
 	time.sleep(2) 
 
-# Send arm and hand to home position
-def reset_arm_hand():
+# Send arm up for object to be reset
+def reset_arm_hand(grasp):
 	send_hand_position(command_pub, [0,0,0,0,0,0,0,0])
 	time.sleep(3) #let go of object completly before arm moves
-	send_adept_joints([0,0,0,0,0,0])
-	time.sleep(15)
+	
+	adept = []
+	adept = [-.5,-1, grasp["J position3"], grasp["J position4"], grasp["J position5"], grasp["J position6"]  ] 
+	send_adept_joints(adept)
+	time.sleep(5)
 
+def check_grasp_name(grasp_num_name):
+	name_list = ['A','B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q','R','S', 'T','U','V','W','X','Y','Z']
+	if os.path.exists( "/home/roboticslab/AlphaTrialVideos/Grasp" + str(grasp_num_name)):
+		for letter in name_list:
+			if not os.path.exists("/home/roboticslab/AlphaTrialVideos/Grasp" + str(grasp_num_name)+ str(letter)):
+				grasp_num_name = str(grasp_num_name) + str(letter)
+				return grasp_num_name
+				break
+	else:
+		return grasp_num_name
 
 if __name__ == "__main__":
     grasp_filename = "grasp_list.csv"
@@ -197,7 +210,8 @@ if __name__ == "__main__":
 		if not grasp_num in grasps.keys():
 			print "Unrecognized grasp index."
 			continue
-	
+
+	grasp_num_name = check_grasp_name(grasp_num)
 	#Ask how many trials they want to test
 	grasp_trial_num = get_trial_num()
 	print "Running Grasp %s time(s)" % (grasp_trial_num)
@@ -207,8 +221,8 @@ if __name__ == "__main__":
 	while grasp_trial_num > 0:
 		#Kinect Video service call
 		current_trial_num = str(orig_trial_num - grasp_trial_num)
-		start_vid_record(grasp_num, current_trial_num)
-		open_csv_writer(grasp_num)
+		start_vid_record(grasp_num_name, current_trial_num)
+		open_csv_writer(grasp_num_name)
 
 		# Move the arm
 		grasp_pos = arm_to_grasp_position(grasps[grasp_num])
@@ -250,8 +264,8 @@ if __name__ == "__main__":
 		ic3 = image_converter('_img3')
 		#time.sleep(2)
 	
-		#sends arm to home postion. 
-		reset_arm_hand()
+		#lifts arm up for object to reset 
+		reset_arm_hand(grasps[grasp_num])
 		grasp_trial_num -= 1  
 		grasp_trial_bool = False
 		#csv_appender(current_trial_num, , , , , )	
@@ -260,6 +274,8 @@ if __name__ == "__main__":
 		stop_vid_record()
 	
 		#***** Raspberry Pi Service call to reel in object*******
+	
+	send_adept_joints([0, 0, 0, 0, 0, 0])
 
     # Final cleanup
     rospy.signal_shutdown("Closing video thread.")

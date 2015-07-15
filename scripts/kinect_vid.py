@@ -15,6 +15,7 @@ bagvid = None
 name = None
 bagpcl = None
 cnt = 3
+pcl_var = False
 spinner = True
 grasp_trial = None
 grasp_num = None
@@ -25,12 +26,14 @@ bag_file_location = "/home/roboticslab/AlphaTrialVideos/"
 
 
 def kinect_pcl_cb(msg):
-	global bagpcl, cnt
-	bagpcl.write('camera/depth_registered/points', msg)
-	cnt -= 1
+	global bagpcl, cnt, pcl_var
+	if pcl_var == True:
+		bagpcl.write('camera/depth_registered/points', msg)
+		cnt -= 1
+	pcl_var = False
  
 def point_cloud_record(pcl_num):
-	global bagpcl, grasp_trial, bag_file_location, cnt
+	global bagpcl, grasp_trial, bag_file_location, cnt, pcl_var
 
 	if not os.path.exists(bag_file_location +'Grasp' + str(grasp_num)):
 		os.makedirs(bag_file_location +'Grasp' + str(grasp_num))
@@ -41,6 +44,7 @@ def point_cloud_record(pcl_num):
 	
 	while cnt > 0:
 		print "wacky" + str(cnt)
+		pcl_var = True
 		continue
 	
 	cnt = 3
