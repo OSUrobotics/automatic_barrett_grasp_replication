@@ -58,21 +58,29 @@ class image_converter:
 	global img_num, bag_file_location, grasp_num, grasp_trial
 	
 	def __init__(self, img_num):
+		self.looper = True
 		self.img_num = img_num
 		self.img_pub = rospy.Publisher("/camera/rgb/image_color", Image)
 		self.bridge = CvBridge()
 		self.image_sub = rospy.Subscriber("/camera/rgb/image_color", Image, self.callback, queue_size=1)
-		
+		self.name = None
+		while self.looper == True:
+			continue
+
 	def callback(self, data):
 		try:
 			cv_image = self.bridge.imgmsg_to_cv2(data, "bgr8")
 		except CvBridgeError, e:
 			print e
 
-		name = bag_file_location +'Grasp' + str(grasp_num) +'/'+ 'Grasp_' + str(grasp_num) +'_trial_'+ str(grasp_trial) + str(self.img_num) +'.png'
-		cv2.imwrite(name, cv_image) 
+		self.name = bag_file_location +'Grasp' + str(grasp_num) +'/'+ 'Grasp_' + str(grasp_num) +'_trial_'+ str(grasp_trial) + str(self.img_num) +'.png'
+		cv2.imwrite(self.name, cv_image) 
 		
 		self.image_sub.unregister()
+		self.looper = False
+
+	def img_name(self):
+		return self.name
 	
 def init_vid_thread():
 	global vid_start_lock

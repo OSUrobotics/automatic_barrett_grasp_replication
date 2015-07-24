@@ -6,6 +6,8 @@ import os
 from sensor_msgs.msg import JointState
 from csv_file_writer import *
 from kinect_vid import *
+from Raspberry_pi_com import *
+from joint_operations import *
 import math, struct
 import time
 from numpy import *
@@ -15,9 +17,12 @@ from hand_control import send_hand_position
 from sensor_msgs.msg import Image
 
 
-#Global variable to keep track of trials
+#Global variable to keep track of trials, and other thing related
 grasp_trial_num = 0
 grasp_trial_bool = True
+grasp_num_dic = {} #dic to map the type of grasp and number of trials for that grasp
+grasp_trial_dic = {} #dic to make trials and data
+ 
 
 
 def parse_grasp_file(filename):
@@ -116,16 +121,18 @@ def shake_right():
 
 # Returns the number of trials the user wants to execute (int)
 def get_trial_num():
-	while True:
-		grasp_trial_num = raw_input("How many times do you want to run the trial? ")
+	global grasp_num_dic
+	for key in grasp_num_dic.keys():
+		grasp_trial_num = raw_input("How many times do you want to test Grasps %s? "%key)
 	
 		#Validate input
 		try:
-			return int(grasp_trial_num)
+			grasp_num_dic[key] = int(grasp_trial_num)
 		except ValueError:
-			print "Unrecongized trial entry"
+			print "Unrecongized trial entry, grasp for %s set to zero "%key
+			grasp_num_dic[key] = 0
 			continue
-		
+
 def arm_to_grasp_position(grasp):
 	adept_joint_list = []
 	adept_joint_list = [grasp["J position1"], grasp["J position2"], grasp["J position3"], grasp["J position4"], grasp["J position5"], grasp["J position6"]  ]
@@ -133,17 +140,19 @@ def arm_to_grasp_position(grasp):
 
 	return adept_joint_list
 
-def get_user_hand_adj(grasp, command_pub):
+def get_user_hand_adj(grasp, command_pub):	
         raw_input("Press enter to grasp.")
         cur_hand_jts = [0, grasp["Finger 1(rads)"], grasp["Finger 2(rads)"], grasp["Finger 3(rads)"], 0, 0, grasp["Spread (rads)"], 0 ]
-        grasp_inc = "0"
+        #the_effort = joint_data_listener()
+	#print(the_effort)
+	grasp_inc = "0"
 	grasp_inc_Copy = 0
         while grasp_inc != "q" and grasp_inc != "Q":
          	grasp_inc = float(grasp_inc)
           	cur_hand_jts[1] += grasp_inc
          	cur_hand_jts[2] += grasp_inc
          	cur_hand_jts[3] += grasp_inc
-         	send_hand_position(command_pub, cur_hand_jts)
+         	send_hand_position(command_pub, cur_hand_jts)	
 	 	#Make sure input is correct and allow them to re-enter or quit
 	 	while True:
 	 		try:
@@ -156,25 +165,23 @@ def get_user_hand_adj(grasp, command_pub):
 			except ValueError:
 		 		print "Invalid Entry, try again"
 	return grasp_inc_Copy
-
+ 
 def automatic_hand_close(grasp, command_pub, user_adj):
-	time.sleep(15) #No feed back to know if arm is  in postion so we wait to grasp
+	time.sleep(11) #No feed back to know if arm is  in postion so we wait to grasp
         cur_hand_jts = [0, grasp["Finger 1(rads)"], grasp["Finger 2(rads)"], grasp["Finger 3(rads)"], 0, 0, grasp["Spread (rads)"], 0 ]
         cur_hand_jts[1] += user_adj
         cur_hand_jts[2] += user_adj
         cur_hand_jts[3] += user_adj
         send_hand_position(command_pub, cur_hand_jts)
-	time.sleep(2) 
+	time.sleep(1.2) 
 
 # Send arm up for object to be reset
 def reset_arm_hand(grasp):
 	send_hand_position(command_pub, [0,0,0,0,0,0,0,0])
-	time.sleep(3) #let go of object completly before arm moves
-	
 	adept = []
 	adept = [-.5,-1, grasp["J position3"], grasp["J position4"], grasp["J position5"], grasp["J position6"]  ] 
 	send_adept_joints(adept)
-	time.sleep(5)
+	time.sleep(4)
 
 def check_grasp_name(grasp_num_name):
 	name_list = ['A','B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q','R','S', 'T','U','V','W','X','Y','Z']
@@ -187,6 +194,27 @@ def check_grasp_name(grasp_num_name):
 	else:
 		return grasp_num_name
 
+def ask_grasp_name(grasps):
+    	while True:
+    		#Only need to ask part under if at the beginning
+		grasp_num = raw_input("Which grasp do you want for the hand (q to quit)? ")
+	
+		# Validate input
+		if grasp_num.lower() == "q":
+			break
+		else:
+			if grasp_num in grasps.keys():
+				grasp_num_dic[grasp_num] = 0  #set number of trials for that grasp equal to zero
+				user_answer = raw_input("Do you want to enter more grasp (Y or N)? ")
+				if user_answer.lower() == 'y':
+					continue
+				else:
+					break
+			else:
+				print "Unrecognized grasp index."
+				continue
+	return grasp_num
+	
 if __name__ == "__main__":
     grasp_filename = "grasp_list.csv"
     rospy.init_node("run_grasp")
@@ -200,81 +228,85 @@ if __name__ == "__main__":
     #Keep Code runing as long as trials are not finished or system is not shutdown
     user_adj = 0
     while not rospy.is_shutdown():
-    	#Only need to ask part under if at the beginning
-	grasp_num = raw_input("Which grasp do you want for the hand (q to quit)? ")
-	
-	# Validate input
+	grasp_num = ask_grasp_name(grasps)
+
 	if grasp_num.lower() == "q":
 		break
-	else:
-		if not grasp_num in grasps.keys():
-			print "Unrecognized grasp index."
-			continue
 
-	grasp_num_name = check_grasp_name(grasp_num)
-	#Ask how many trials they want to test
-	grasp_trial_num = get_trial_num()
-	print "Running Grasp %s time(s)" % (grasp_trial_num)
+	get_trial_num() #get the number of times they want to run each grasp
 	
-	grasp_trial_bool = True
-	orig_trial_num = grasp_trial_num
-	while grasp_trial_num > 0:
-		#Kinect Video service call
-		current_trial_num = str(orig_trial_num - grasp_trial_num)
-		start_vid_record(grasp_num_name, current_trial_num)
-		open_csv_writer(grasp_num_name)
+	#Keep code running as long as there are grasp to test
+	while len(grasp_num_dic) > 0:
+		grasp_num = grasp_num_dic.keys()[0] 
+		grasp_num_name = check_grasp_name(grasp_num)
+		grasp_trial_num = grasp_num_dic[grasp_num]
+		print "Running Grasp %s time(s)" % (grasp_trial_num)
+	
+		grasp_trial_bool = True
+		orig_trial_num = grasp_trial_num
+		while grasp_trial_num > 0:
+			#Kinect Video service call
+			excel_vid_list = []	#list to keep track of images for each trial
+			current_trial_num = str(orig_trial_num - grasp_trial_num)
+			start_vid_record(grasp_num_name, current_trial_num)
+							
+			# Move the arm
+			grasp_pos = arm_to_grasp_position(grasps[grasp_num])
 
-		# Move the arm
-		grasp_pos = arm_to_grasp_position(grasps[grasp_num])
 
-		# This is for if it is the first trial: Close hand and make small adjustments based on user input
-		if grasp_trial_bool == True:	
-			user_adj = get_user_hand_adj(grasps[grasp_num], command_pub)
-		else: #This is for if its not the first trial: Wait for two seconds then Close the hand
-			automatic_hand_close(grasps[grasp_num], command_pub, user_adj)
+			# This is for if it is the first trial: Close hand and make small adjustments based on user input
+			if grasp_trial_bool == True:	
+				user_adj = get_user_hand_adj(grasps[grasp_num], command_pub)
+			else: #This is for if its not the first trial: Wait for two seconds then Close the hand
+				automatic_hand_close(grasps[grasp_num], command_pub, user_adj)
+			
+			 
+			#Kinect Picture Serice call    
+			ic = image_converter('_img0')
+			point_cloud_record('_pcl0' )
+			excel_vid_list.append(ic.img_name())
 
-		#Kinect Picture Serice call    
-		ic = image_converter('_img0')
-		point_cloud_record('_pcl0' )
+			#Run a shake test
+			if grasp_trial_bool == True:
+				shake_test_bool = raw_input("Enter 'Y' to run the shake test along with grasps or 'N' not to: ")
+			if shake_test_bool == "y" or shake_test_bool == "Y":
+				set_speed(300) 
+				shake_home_pos()
+				time.sleep(1.2) #time to get to home_pos()
+				ic1 = image_converter('_img1')
+				#point_cloud_record('_pcl1')
+				excel_vid_list.append(ic1.img_name())
+				#time.sleep(2)
+				for i in range(3):
+					shake_left()
+					shake_right()        
+				set_speed(100)
+				shake_home_pos()
+				time.sleep(1.2)
+				ic2 = image_converter('_img2')
+				#point_cloud_record('_pcl2')
+				excel_vid_list.append(ic2.img_name())
+				#time.sleep(2)
 		
-	
-		#Run a shake test
-		if grasp_trial_bool == True:
-			shake_test_bool = raw_input("Enter 'Y' to run the shake test along with grasps or 'N' not to: ")
-		if shake_test_bool == "y" or shake_test_bool == "Y":
-			set_speed(500) 
-			shake_home_pos()
-			time.sleep(1.5) #time to get to home_pos()
-			ic1 = image_converter('_img1')
-			point_cloud_record('_pcl1')
+			#Move Arm to set object back down
+			send_adept_joints(grasp_pos)
+			time.sleep(5)
+			pi_start_up()
+			ic3 = image_converter('_img3')
+			excel_vid_list.append(ic3.img_name())
 			#time.sleep(2)
-			for i in range(3):
-				shake_left()
-				shake_right()        
-			set_speed(100)
-			shake_home_pos()
-			time.sleep(1.3)
-			ic2 = image_converter('_img2')
-			point_cloud_record('_pcl2')
-			#time.sleep(2)
-	
-		#Move Arm to set object back down
-		send_adept_joints(grasp_pos)
-		time.sleep(11)
-		ic3 = image_converter('_img3')
-		#time.sleep(2)
-	
-		#lifts arm up for object to reset 
-		reset_arm_hand(grasps[grasp_num])
-		grasp_trial_num -= 1  
-		grasp_trial_bool = False
-		#csv_appender(current_trial_num, , , , , )	
-
-		#End the video for trial
-		stop_vid_record()
-	
-		#***** Raspberry Pi Service call to reel in object*******
-	
+		
+			#lifts arm up for object to reset 
+			reset_arm_hand(grasps[grasp_num])
+			grasp_trial_num -= 1  
+			grasp_trial_bool = False
+			
+			#End the video for trial
+			stop_vid_record()
+			grasp_trial_dic[current_trial_num] = excel_vid_list
+			#***** Raspberry Pi Service call to reel in object*******
+		xls_open_n_write(grasp_num_name, grasp_trial_dic)
+		del grasp_num_dic[grasp_num]		
 	send_adept_joints([0, 0, 0, 0, 0, 0])
 
     # Final cleanup
