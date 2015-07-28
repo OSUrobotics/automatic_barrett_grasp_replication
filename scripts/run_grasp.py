@@ -140,11 +140,9 @@ def arm_to_grasp_position(grasp):
 
 	return adept_joint_list
 
-def get_user_hand_adj(grasp, command_pub):	
+def get_user_hand_adj(grasp, command_pub, the_joint_data):	
         raw_input("Press enter to grasp.")
-        cur_hand_jts = [0, grasp["Finger 1(rads)"], grasp["Finger 2(rads)"], grasp["Finger 3(rads)"], 0, 0, grasp["Spread (rads)"], 0 ]
-        #the_effort = joint_data_listener()
-	#print(the_effort)
+        cur_hand_jts = [0, grasp["Finger 1(rads)"], grasp["Finger 2(rads)"], grasp["Finger 3(rads)"], 0, 0, grasp["Spread (rads)"], 0 ] 
 	grasp_inc = "0"
 	grasp_inc_Copy = 0
         while grasp_inc != "q" and grasp_inc != "Q":
@@ -153,6 +151,11 @@ def get_user_hand_adj(grasp, command_pub):
          	cur_hand_jts[2] += grasp_inc
          	cur_hand_jts[3] += grasp_inc
          	send_hand_position(command_pub, cur_hand_jts)	
+	 	time.sleep(1)
+		print(the_joint_data.joint_data_values())
+		print(the_joint_data.joint_effort_finger_1())
+		#rospy.Time.now()
+
 	 	#Make sure input is correct and allow them to re-enter or quit
 	 	while True:
 	 		try:
@@ -175,13 +178,14 @@ def automatic_hand_close(grasp, command_pub, user_adj):
         send_hand_position(command_pub, cur_hand_jts)
 	time.sleep(1.2) 
 
-# Send arm up for object to be reset
+# Send arm up and winds up the object to be reset
 def reset_arm_hand(grasp):
 	send_hand_position(command_pub, [0,0,0,0,0,0,0,0])
 	adept = []
 	adept = [-.5,-1, grasp["J position3"], grasp["J position4"], grasp["J position5"], grasp["J position6"]  ] 
 	send_adept_joints(adept)
-	time.sleep(4)
+	pi_start_up()
+
 
 def check_grasp_name(grasp_num_name):
 	name_list = ['A','B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q','R','S', 'T','U','V','W','X','Y','Z']
@@ -216,14 +220,14 @@ def ask_grasp_name(grasps):
 	return grasp_num
 	
 if __name__ == "__main__":
-    grasp_filename = "grasp_list.csv"
+    grasp_filename = "grasp_list.csv"  #File that contains the grasp to test
     rospy.init_node("run_grasp")
-    command_pub = rospy.Publisher("bhand_node/command", JointState, queue_size=100)
+    command_pub = rospy.Publisher("bhand_node/command", JointState, queue_size=100) #Need this send messages to the barrett hand
     
-    grasps = parse_grasp_file(grasp_filename)
+    grasps = parse_grasp_file(grasp_filename) #change the file to a workable vairable 
     
-    # Start up video recording thread
-    t1 = init_vid_thread()
+    t1 = init_vid_thread() #Start up video recording thread
+    the_joint_data = joint_data_feedback() #Start getting joint feed back
    
     #Keep Code runing as long as trials are not finished or system is not shutdown
     user_adj = 0
@@ -245,18 +249,15 @@ if __name__ == "__main__":
 		grasp_trial_bool = True
 		orig_trial_num = grasp_trial_num
 		while grasp_trial_num > 0:
-			#Kinect Video service call
 			excel_vid_list = []	#list to keep track of images for each trial
 			current_trial_num = str(orig_trial_num - grasp_trial_num)
-			start_vid_record(grasp_num_name, current_trial_num)
-							
-			# Move the arm
-			grasp_pos = arm_to_grasp_position(grasps[grasp_num])
+			start_vid_record(grasp_num_name, current_trial_num)#Kinect Video service call
+			#grasp_pos = arm_to_grasp_position(grasps[grasp_num]) #Move the arm to grasp position
 
 
 			# This is for if it is the first trial: Close hand and make small adjustments based on user input
 			if grasp_trial_bool == True:	
-				user_adj = get_user_hand_adj(grasps[grasp_num], command_pub)
+				user_adj = get_user_hand_adj(grasps[grasp_num], command_pub, the_joint_data)
 			else: #This is for if its not the first trial: Wait for two seconds then Close the hand
 				automatic_hand_close(grasps[grasp_num], command_pub, user_adj)
 			
@@ -267,16 +268,15 @@ if __name__ == "__main__":
 			excel_vid_list.append(ic.img_name())
 
 			#Run a shake test
-			if grasp_trial_bool == True:
+			if grasp_trial_bool == True: #if it's the first time trial is run
 				shake_test_bool = raw_input("Enter 'Y' to run the shake test along with grasps or 'N' not to: ")
-			if shake_test_bool == "y" or shake_test_bool == "Y":
+			if shake_test_bool.lower() == "y":
 				set_speed(300) 
 				shake_home_pos()
-				time.sleep(1.2) #time to get to home_pos()
+				time.sleep(1.2) #time for arm to get to home_pos()
 				ic1 = image_converter('_img1')
-				#point_cloud_record('_pcl1')
+				point_cloud_record('_pcl1')
 				excel_vid_list.append(ic1.img_name())
-				#time.sleep(2)
 				for i in range(3):
 					shake_left()
 					shake_right()        
@@ -284,30 +284,25 @@ if __name__ == "__main__":
 				shake_home_pos()
 				time.sleep(1.2)
 				ic2 = image_converter('_img2')
-				#point_cloud_record('_pcl2')
+				point_cloud_record('_pcl2')
 				excel_vid_list.append(ic2.img_name())
-				#time.sleep(2)
-		
-			#Move Arm to set object back down
-			send_adept_joints(grasp_pos)
-			time.sleep(5)
-			pi_start_up()
-			ic3 = image_converter('_img3')
-			excel_vid_list.append(ic3.img_name())
-			#time.sleep(2)
-		
-			#lifts arm up for object to reset 
-			reset_arm_hand(grasps[grasp_num])
+				
+			send_adept_joints( [0, -0.87, 2.49, 0, -0.45, 0]) #Move Arm to drop object back down
+			time.sleep(1)
+			#ic3 = image_converter('_img3')
+			#excel_vid_list.append(ic3.img_name())
+		 
+			reset_arm_hand(grasps[grasp_num]) #lets go of object and moves arm of of the way for object to reset 
 			grasp_trial_num -= 1  
-			grasp_trial_bool = False
+			grasp_trial_bool = False 
 			
 			#End the video for trial
 			stop_vid_record()
-			grasp_trial_dic[current_trial_num] = excel_vid_list
-			#***** Raspberry Pi Service call to reel in object*******
-		xls_open_n_write(grasp_num_name, grasp_trial_dic)
-		del grasp_num_dic[grasp_num]		
-	send_adept_joints([0, 0, 0, 0, 0, 0])
+			grasp_trial_dic[current_trial_num] = excel_vid_list #make the current trial to it's images
+
+		xls_open_n_write(grasp_num_name, grasp_trial_dic) #At the end of all trials, makes an excel sheet
+		del grasp_num_dic[grasp_num]		#gets ready for next grasp test if there is one
+	send_adept_joints([0, 0, 0, 0, 0, 0])		#sends arm back to home postion once testing is done
 
     # Final cleanup
     rospy.signal_shutdown("Closing video thread.")

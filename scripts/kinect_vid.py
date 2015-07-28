@@ -28,22 +28,21 @@ bag_file_location = "/home/roboticslab/AlphaTrialVideos/"
 def kinect_pcl_cb(msg):
 	global bagpcl, cnt, pcl_var
 	if pcl_var == True:
-		bagpcl.write('camera/depth_registered/points', msg)
+		bagpcl.write('camera/depth_registered/points', msg) #writes the pcl into the bagfile
 		cnt -= 1
 	pcl_var = False
  
 def point_cloud_record(pcl_num):
 	global bagpcl, grasp_trial, bag_file_location, cnt, pcl_var
-
+	#creates a new file folder if one already exist
 	if not os.path.exists(bag_file_location +'Grasp' + str(grasp_num)):
 		os.makedirs(bag_file_location +'Grasp' + str(grasp_num))
 	
 	bagname = bag_file_location +'Grasp' + str(grasp_num) +'/'+ 'Grasp_' + str(grasp_num) +'_trial_'+ str(grasp_trial) + str(pcl_num) +'.bag'
         bagpcl = rosbag.Bag(bagname, 'w')
-        pcl_sub = rospy.Subscriber("camera/depth_registered/points", PointCloud2, kinect_pcl_cb, queue_size=1)
+        pcl_sub = rospy.Subscriber("camera/depth_registered/points", PointCloud2, kinect_pcl_cb, queue_size=1) #subscribes to the kinect 
 	
 	while cnt > 0:
-		print "wacky" + str(cnt)
 		pcl_var = True
 		continue
 	
@@ -68,11 +67,12 @@ class image_converter:
 			continue
 
 	def callback(self, data):
+		#makes an image object that is converited from Image data to cv2 data
 		try:
 			cv_image = self.bridge.imgmsg_to_cv2(data, "bgr8")
 		except CvBridgeError, e:
 			print e
-
+		#names the image and saves it 
 		self.name = bag_file_location +'Grasp' + str(grasp_num) +'/'+ 'Grasp_' + str(grasp_num) +'_trial_'+ str(grasp_trial) + str(self.img_num) +'.png'
 		cv2.imwrite(self.name, cv_image) 
 		
@@ -141,6 +141,6 @@ def kinect_caller():
 		image_sub.unregister()
 		del image_sub
        		bagvid.close()
-		print "Kinect Img bag close " + bag_name + ", time: ", time.time()
-		#time.sleep(1)
+		#print "Kinect Img bag close " + bag_name + ", time: ", time.time()
+		
 	

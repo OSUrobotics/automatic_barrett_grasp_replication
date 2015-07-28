@@ -43,13 +43,12 @@ def xls_open_n_write(grasp, dic):
 	row = 2
 	count = 0 
 	while count < len(dic):
-		worksheet.write('A'+str(row), "grasp " + str(count))
-		print dic
+		worksheet.write('A'+str(row), "grasp " + str(count))	
 		worksheet.set_row(row-1,115)
 		worksheet.insert_image('D' + str(row), str(dic[str(count)][0]), {'x_scale': 0.3, 'y_scale': 0.3})
 		worksheet.insert_image('E' + str(row), str(dic[str(count)][1]), {'x_scale': 0.3, 'y_scale': 0.3})
 		worksheet.insert_image('F' + str(row), str(dic[str(count)][2]), {'x_scale': 0.3, 'y_scale': 0.3})
-		worksheet.insert_image('G' + str(row), str(dic[str(count)][3]), {'x_scale': 0.3, 'y_scale': 0.3}) 
+		#worksheet.insert_image('G' + str(row), str(dic[str(count)][3]), {'x_scale': 0.3, 'y_scale': 0.3}) 
 		row += 1
 		count += 1
 
