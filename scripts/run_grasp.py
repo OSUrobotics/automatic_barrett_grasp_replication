@@ -141,32 +141,37 @@ def arm_to_grasp_position(grasp):
 	return adept_joint_list
 
 def get_user_hand_adj(grasp, command_pub, the_joint_data):	
-        raw_input("Press enter to grasp.")
+        #raw_input("Press enter to grasp.")
         cur_hand_jts = [0, grasp["Finger 1(rads)"], grasp["Finger 2(rads)"], grasp["Finger 3(rads)"], 0, 0, grasp["Spread (rads)"], 0 ] 
 	grasp_inc = "0"
 	grasp_inc_Copy = 0
-        while grasp_inc != "q" and grasp_inc != "Q":
+	effort_rate = 5
+	past_rate = 0
+	effort_I1 = 0 # initial effort
+	effort_V1 = 0 #final effort
+	time_V = 0
+	time_I = 0
+        while  effort_rate >= .02:
          	grasp_inc = float(grasp_inc)
           	cur_hand_jts[1] += grasp_inc
          	cur_hand_jts[2] += grasp_inc
          	cur_hand_jts[3] += grasp_inc
          	send_hand_position(command_pub, cur_hand_jts)	
 	 	time.sleep(1)
-		print(the_joint_data.joint_data_values())
-		print(the_joint_data.joint_effort_finger_1())
-		#rospy.Time.now()
-
-	 	#Make sure input is correct and allow them to re-enter or quit
-	 	while True:
-	 		try:
-         	 		grasp_inc = raw_input("Enter how much to increase closure by (change in radians, or q to quit):")
-		 		if grasp_inc == "q" or  grasp_inc == "Q":
-		 			break
-		 		else:
-					grasp_inc_Copy += float(grasp_inc)
-					break
-			except ValueError:
-		 		print "Invalid Entry, try again"
+		effort_V1 = the_joint_data.joint_effort_finger_1()
+		time_V = (rospy.Time.now().nsecs) 
+		effort_rate = ((effort_V1 - effort_I1) / (time_V - time_I)) *10000000
+		print("Effort: ", the_joint_data.joint_effort_finger_1())
+		print "time_V: ", time_V
+		print("Effort rate: ", effort_rate)
+		effort_I1 = effort_V1
+		time_I = time_V
+		past_rate = effort_rate
+		print "Effort pastRate:" , past_rate
+		grasp_inc = .05
+		grasp_inc_Copy += grasp_inc
+		
+	 	
 	return grasp_inc_Copy
  
 def automatic_hand_close(grasp, command_pub, user_adj):
@@ -252,7 +257,7 @@ if __name__ == "__main__":
 			excel_vid_list = []	#list to keep track of images for each trial
 			current_trial_num = str(orig_trial_num - grasp_trial_num)
 			start_vid_record(grasp_num_name, current_trial_num)#Kinect Video service call
-			#grasp_pos = arm_to_grasp_position(grasps[grasp_num]) #Move the arm to grasp position
+			grasp_pos = arm_to_grasp_position(grasps[grasp_num]) #Move the arm to grasp position
 
 
 			# This is for if it is the first trial: Close hand and make small adjustments based on user input
@@ -261,7 +266,7 @@ if __name__ == "__main__":
 			else: #This is for if its not the first trial: Wait for two seconds then Close the hand
 				automatic_hand_close(grasps[grasp_num], command_pub, user_adj)
 			
-			 
+			print "staying alive" 
 			#Kinect Picture Serice call    
 			ic = image_converter('_img0')
 			point_cloud_record('_pcl0' )
