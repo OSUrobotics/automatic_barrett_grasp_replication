@@ -22,7 +22,7 @@ grasp_trial_num = 0
 grasp_trial_bool = True
 grasp_num_dic = {} #dic to map the type of grasp and number of trials for that grasp
 grasp_trial_dic = {} #dic to make trials and data
- 
+grasp_fingers_list = {}  #dic to check whick fingers are being used 
 
 
 def parse_grasp_file(filename):
@@ -140,75 +140,110 @@ def arm_to_grasp_position(grasp):
 
 	return adept_joint_list
 
-def get_hand_adj(grasp, command_pub, the_joint_data):
-	raw_input("Press enter to grasp.")
+def get_user_hand_adj(grasp, command_pub):	
+        raw_input("Press enter to grasp.")
         cur_hand_jts = [0, grasp["Finger 1(rads)"], grasp["Finger 2(rads)"], grasp["Finger 3(rads)"], 0, 0, grasp["Spread (rads)"], 0 ] 
+
 	grasp_inc = "0"
+	grasp_inc_Copy = [0,0,0]
+        while grasp_inc != "q" and grasp_inc != "Q":
+         	grasp_inc = float(grasp_inc)
+          	cur_hand_jts[1] += grasp_inc
+         	cur_hand_jts[2] += grasp_inc
+         	cur_hand_jts[3] += grasp_inc
+		grasp_inc_Copy[0] += grasp_inc
+		grasp_inc_Copy[1] += grasp_inc
+		grasp_inc_Copy[2] += grasp_inc
+         	send_hand_position(command_pub, cur_hand_jts)	
+	 	
+		#Make sure input is correct and allow them to re-enter or quit
+	 	while True:
+	 		try:
+         	 		grasp_inc = raw_input("Enter how much to increase closure by (change in radians, or q to quit):")
+		 		if grasp_inc == "q" or  grasp_inc == "Q":
+		 			break
+		 		else:
+					float(grasp_inc)
+					break
+			except ValueError:
+		 		print "Invalid Entry, try again"
+	return grasp_inc_Copy 
+
+def get_hand_adj(grasp, command_pub, the_joint_data, grasp_fingers_list):
+	user_choice = raw_input("Do you want grasp to close automatically? (Y or N) ")
 	grasp_inc_Copy = [] #list to store three grasp incs 
-	grasp_inc_1 = grasp_inc_2 = grasp_inc_3 = 0 #the amout of closer for each finger
-	effort_rate1 = effort_rate2 = effort_rate3 = 0 
-	past_rate1 = past_rate2 = past_rate3 = 0
-	effort_I1 = 0 # initial effort
-	effort_V1 = 0 #final effort
-	effort_I1 = 0
-	effort_V2 = 0
-	effort_I2 = 0
-	effort_V3 = 0
-	effort_I3 = 0
-	time_V = 0
-	time_I = 0
-	effort_bool1 = False
-	effort_bool2 = False
-	effort_bool3 = False
-        while effort_bool1 != True and effort_bool2 != True and effort_bool3 != True
-		if abs(effort_rate1 - past_rate1) < 3:  #if the spike in the rate of change of the effort it two much it stops the hand
-          		cur_hand_jts[1] += grasp_inc
-			grasp_inc_1 += grasp_inc
-		else:
-			effort_bool1 = True
-		
-		if abs(effort_rate2 - past_rate2) < 3:
-         		cur_hand_jts[2] += grasp_inc
-			grasp_inc_2 += grasp_inc
-		else:
-			effort_bool2 = True
-		
-		if abs(effort_rate3 - past_rate3) < 3:
-			cur_hand_jts[3] += grasp_inc
-			grasp_inc_3 += grasp_inc
-		else:
-			effort_bool3 = True
-         	
-		send_hand_position(command_pub, cur_hand_jts)	
-	 	time.sleep(1)
 
-		effort_V1 = the_joint_data.joint_effort_finger_1()
-		effort_V2 = the_joint_data.joint_effort_finger_2()
-		effort_V3 = the_joint_data.joint_effort_finger_3()
-		time_V = (rospy.Time.now().nsecs) 
+	if user_choice.lower() == "n":
+		grasp_inc_Copy = get_user_hand_adj(grasp, command_pub)
+	else:
+		raw_input("Press enter to grasp.")
+		cur_hand_jts = [0, grasp["Finger 1(rads)"], grasp["Finger 2(rads)"], grasp["Finger 3(rads)"], 0, 0, grasp["Spread (rads)"], 0 ] 
+		grasp_inc = 0 
+		grasp_inc_1 = grasp_inc_2 = grasp_inc_3 = 0 #the amout of closer for each finger
+		effort_rate1 = effort_rate2 = effort_rate3 = 0 
+		past_rate1 = past_rate2 = past_rate3 = 0
+		effort_I1 = 0 # initial effort
+		effort_V1 = 0 #final effort
+		effort_I1 = 0
+		effort_V2 = 0
+		effort_I2 = 0
+		effort_V3 = 0
+		effort_I3 = 0
+		time_V = 0
+		time_I = 0
+		effort_bool1 = False
+		effort_bool2 = False
+		effort_bool3 = False
+		while effort_bool1 == False or effort_bool2 == False or effort_bool3 == False:
+			if abs(effort_rate1 - past_rate1) < .02 and grasp_fingers_list[grasp_num][0] == True:  #if the spike in the rate of change of the effort is to much it stops the hand
+				cur_hand_jts[1] += grasp_inc
+				grasp_inc_1 += grasp_inc
+			else:
+				effort_bool1 = True
+			
+			if abs(effort_rate2 - past_rate2) < .02 and grasp_fingers_list[grasp_num][1] == True:
+				cur_hand_jts[2] += grasp_inc
+				grasp_inc_2 += grasp_inc
+			else:
+				effort_bool2 = True
+			
+			if abs(effort_rate3 - past_rate3) < .02 and grasp_fingers_list[grasp_num][2] == True:
+				cur_hand_jts[3] += grasp_inc
+				grasp_inc_3 += grasp_inc
+			else:
+				effort_bool3 = True
+			
+			send_hand_position(command_pub, cur_hand_jts)	
+			time.sleep(.5)
 
-		past_rate1 = effort_rate1
-		effort_rate1 = ((effort_V1 - effort_I1) / (time_V - time_I)) *100000000 #multipy to make it into a workable number
-		past_rate2 = effort_rate2
-		effort_rate2 = ((effort_V2 - effort_I2) / (time_V - time_I)) *100000000 
-		past_rate3 = effort_rate3
-		effort_rate3 = ((effort_V3 - effort_I3) / (time_V - time_I)) *100000000 
-		print("Effort: ", effort_V1)
-		#print "time_V: ", time_V
-		print("Effort rate: ", effort_rate)
+			effort_V1 = the_joint_data.joint_effort_finger_1()
+			effort_V2 = the_joint_data.joint_effort_finger_2()
+			effort_V3 = the_joint_data.joint_effort_finger_3()
+			time_V = (rospy.Time.now().nsecs) 
 
-		effort_I1 = effort_V1
-		effort_I2 = effort_V2
-		effort_I3 = effort_V3
-		time_I = time_V
+			past_rate1 = effort_rate1
+			effort_rate1 = ((effort_V1 - effort_I1) / (time_V - time_I)) *100000000 #multipy to make it into a workable number
+			past_rate2 = effort_rate2
+			effort_rate2 = ((effort_V2 - effort_I2) / (time_V - time_I)) *100000000 
+			past_rate3 = effort_rate3
+			effort_rate3 = ((effort_V3 - effort_I3) / (time_V - time_I)) *100000000 
+			print("Effort: ", effort_V1)
+			#print "time_V: ", time_V
+			print("Effort rate: ", effort_rate1)
 
-		print "Effort pastRate:" , past_rate
-		grasp_inc = .05
-		
-		
-	grasp_inc_Copy.append(grasp_inc_1)
-	grasp_inc_Copy.append(grasp_inc_2)
-	grasp_inc_Copy.append(grasp_inc_3)
+			effort_I1 = effort_V1
+			effort_I2 = effort_V2
+			effort_I3 = effort_V3
+			time_I = time_V
+
+			print "Effort pastRate:" , past_rate1
+			grasp_inc = .05
+			
+			
+		grasp_inc_Copy.append(grasp_inc_1)
+		grasp_inc_Copy.append(grasp_inc_2)
+		grasp_inc_Copy.append(grasp_inc_3)
+
 	return grasp_inc_Copy
  
 def automatic_hand_close(grasp, command_pub, hand_adj):
@@ -241,6 +276,7 @@ def check_grasp_name(grasp_num_name):
 		return grasp_num_name
 
 def ask_grasp_name(grasps):
+	global  grasp_num_dic, grasp_fingers_list
     	while True:
     		#Only need to ask part under if at the beginning
 		grasp_num = raw_input("Which grasp do you want for the hand (q to quit)? ")
@@ -251,6 +287,17 @@ def ask_grasp_name(grasps):
 		else:
 			if grasp_num in grasps.keys():
 				grasp_num_dic[grasp_num] = 0  #set number of trials for that grasp equal to zero
+				grasp_fingers_list[grasp_num] = [True, True, True] #Keep track of fingers used, default to use all fingers
+
+				user_answer_1 = raw_input("Does the grasp use all fingers (Y or N)? ")
+				if user_answer_1.lower() != "y":
+					for i in range(3):
+						finger_bool = raw_input("Is finger %s used? (y or n)? " %(i +1) )
+						if finger_bool.lower() == "y":
+							grasp_fingers_list[grasp_num][i] = True		
+						else:
+							grasp_fingers_list[grasp_num][i] = False
+				
 				user_answer = raw_input("Do you want to enter more grasp (Y or N)? ")
 				if user_answer.lower() == 'y':
 					continue
@@ -259,6 +306,7 @@ def ask_grasp_name(grasps):
 			else:
 				print "Unrecognized grasp index."
 				continue
+
 	return grasp_num
 	
 if __name__ == "__main__":
@@ -274,7 +322,7 @@ if __name__ == "__main__":
     #Keep Code runing as long as trials are not finished or system is not shutdown
     hand_adj = [0,0,0] 
     while not rospy.is_shutdown():
-	grasp_num = ask_grasp_name(grasps)
+	grasp_num  = ask_grasp_name(grasps) #Find the grasp they want to test and checks if all fingers are being used
 
 	if grasp_num.lower() == "q":
 		break
@@ -294,12 +342,12 @@ if __name__ == "__main__":
 			excel_vid_list = []	#list to keep track of images for each trial
 			current_trial_num = str(orig_trial_num - grasp_trial_num)
 			start_vid_record(grasp_num_name, current_trial_num)#Kinect Video service call
-			grasp_pos = arm_to_grasp_position(grasps[grasp_num]) #Move the arm to grasp position
+			#grasp_pos = arm_to_grasp_position(grasps[grasp_num]) #Move the arm to grasp position
 
 
 			# This is for if it is the first trial: Close hand and make small adjustments based on user input
 			if grasp_trial_bool == True:	
-				hand_adj = get_hand_adj(grasps[grasp_num], command_pub, the_joint_data)
+				 hand_adj = get_hand_adj(grasps[grasp_num], command_pub, the_joint_data, grasp_fingers_list)
 			else: #This is for if its not the first trial: Wait for two seconds then Close the hand
 				automatic_hand_close(grasps[grasp_num], command_pub, hand_adj)
 			

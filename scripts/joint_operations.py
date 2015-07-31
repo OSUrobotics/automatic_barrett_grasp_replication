@@ -30,3 +30,6 @@ class joint_data_feedback:
 	
 	def joint_position_finger_1(self):
 		return self.data.postion[3]
+
+	def joint_position_finger_1(self):
+		return self.data.postion[0]
