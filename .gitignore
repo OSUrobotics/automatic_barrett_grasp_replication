@@ -1,1 +1,4 @@
 *.bag
+*.pyc
+*.swp
+*.swo
