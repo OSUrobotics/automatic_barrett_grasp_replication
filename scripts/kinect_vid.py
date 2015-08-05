@@ -125,8 +125,7 @@ def kinect_caller():
 		if not os.path.exists(bag_file_location +'Grasp' + str(grasp_num)):
 			os.makedirs(bag_file_location +'Grasp' + str(grasp_num))
 
-		bag_name = bag_file_location + 'Grasp' + str(grasp_num) +'/' + 'Grasp_' + str(grasp_num) +'_trial_'+ str(grasp_trial) + '_vid' +'.bag'
-		rospy.loginfo("Recording to bag: " + bag_name)
+		bag_name = bag_file_location + 'Grasp' + str(grasp_num) +'/' + 'Grasp_' + str(grasp_num) +'_trial_'+ str(grasp_trial) + '_vid' +'.bag'	
 		bagvid = rosbag.Bag(bag_name, 'w')
 		image_sub = rospy.Subscriber("/camera/rgb/image_color/compressed", CompressedImage, kinect_image_cb, queue_size=1)
 
