@@ -1,5 +1,4 @@
 #! /usr/bin/env python
-import rospy
 import rospkg
 import rosbag
 import os
@@ -13,7 +12,6 @@ import time
 from numpy import *
 from osu_ros_adept.srv import *
 from hand_control import send_hand_position
-#from sensor_me
 from sensor_msgs.msg import Image
 
 

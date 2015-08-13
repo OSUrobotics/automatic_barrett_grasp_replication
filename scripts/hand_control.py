@@ -1,11 +1,11 @@
 #!/usr/bin/env python
 import rospy
 from sensor_msgs.msg import JointState
-from pyHand_api import *
+
 
 def send_hand_position(command_pub, hand_joint_list):
 	
-	#hand = pyHand('/dev/pcan32')
+
 	print "\tSending hand positions: ", hand_joint_list
 	
 	command = JointState()
@@ -16,5 +16,4 @@ def send_hand_position(command_pub, hand_joint_list):
 	command.effort = [0, 0, 0, 0, 0, 0, 0, 0]
 	command_pub.publish(command)
 
-	#print hand.get_packed_position(FINGER1)
-	#print hand.get_strain(FINGER1)
+

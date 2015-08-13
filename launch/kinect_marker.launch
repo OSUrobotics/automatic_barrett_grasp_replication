@@ -1,0 +1,7 @@
+<?xml version="1.0"?>
+<launch>
+	<include file= "$(find kinect_pose_conrol)/launch/ar_publisher.launch" />
+	<include file= "$(find freenect_launch)/launch/freenect.launch" />
+	<include file= "$(find adept_barrett_moveit_config)/launch/demo.launch" />
+	<node name="sticker_to_robot" pkg="tf" type="static_tranform_publisher" args= "-0.588 0.217 0.045 0 0 0 1 /ar_marker_3 /Adept_Viper_s650_Link1 10"/>
+</launch>
