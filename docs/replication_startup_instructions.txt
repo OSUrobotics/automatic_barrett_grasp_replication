@@ -1,0 +1,64 @@
+IF YOU ARE UNSURE AT ANY POINT, PLEASE ASK SOMEONE WHO KNOWS HOW TO RUN THE SYSTEMS. PLEASE BE VERY CAUTIOUS WHILE RUNNING THE ROBOTS.
+
+IF THE ARM IS MOVING, SOMEONE MUST BE WATCHING AND WITHIN ARM's REACH OF THE E-STOP.
+
+Be sure that you are on the proper network (Adept or AdeptRobotiq). This can be changed by clicking on the Wifi/Arrows symbol in the top right-hand portion of the Ubuntu Desktop.
+ 
+# Power up the Arm
+        Flip the green switch on the Barrett Power Supply box located to the right of the HumanRoboticsLab computer. Verify that blue and green lights appear on the box and that the hand's side LED is powered
+        Flip the blue switch on the black power box beneath the Adept Arm
+        Open a terminal on the computer connected to the blue SmartController box (connection via serial, often to the computer eva), and run
+                sudo minicom
+        Once the program has loaded some text and appears paused, press [Enter]. This will load the robot's program code. Then run
+                load ros.v2
+                enable power (then press the blinking white light to the left of the red E-Stop button just above the black power box)
+                execute a.ros
+
+# Begin ROS and connect to robots
+        In a new terminal on the host machine (usually HumanRoboticsLab), type
+                roscore
+        After "roscore" on other machine, establish connection with arm by using: 
+                roslaunch osu_ros_adept start_basic_connection.launch
+        Open a new terminal on the host machine and type,
+                roslaunch bhand_controller bhand_controller.launch
+
+        To initialize the Barrett hand, open new terminal and type,
+                rosservice call /bhand_node/actions "action: 1".
+        If the return value is 'True', you are good to go.
+
+### End Startup: Robot and Hand should be Functional ###
+
+# To replicate grasps using the adept arm and barrett hand
+Open New terminal: 
+        rosrun barrett_grasp_replication run_grasp.py
+    Once you run this command, it asks you to enter the grasp number: give what grasp
+ you want and hit enter. 
+
+#To enable video capture
+Change directory to 'AlphaTrialVideos' by using command: cd. Then cd AlphaTrialVideos
+    Run this command: roslaunch freenect_launch freenect.launch
+
+#To play back videos taken of trials 
+    Run this command: rosrun rviz rviz
+            When Rviz appears, add a new display of type Image
+            set the display’s topic as '/camera/rgb/image_color'
+    Run this command in a new terminal: rosrun image_transport republish compressed in:=camera/rgb/image_color raw out:=/kinect_compressed_rgb    
+    Run in directory video is saved: rosbag play [file_name].bag
+
+#To play back point clouds in Rviz:
+        add a new display of type PointCloud2
+        change the display topic to 'camera/depth_registered/points'
+        change the Fixed frame to 'camera_rgb_optical_frame'
+    Run this command in the directory pcl is saved: rosbag play [file_name].pcl
+# To control the hand independently of the main script
+Open a New Terminal:
+    rosrun automatic_barrett_grasp_replication hand_operations.py
+
+
+# To run a shake test, (temporary)
+Open a new terminal:   
+    rosrun adept_shake_test shake_adept.py
+    ** Note, this program will shake the adept when run, there is no pleasant (y/n) question
+
+
+      MAKE SURE THAT ONE OF YOU WILL ALWAYS BE WITH THE E-STOP WHEN HAND IS RUNNING.
